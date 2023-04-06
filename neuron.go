@@ -11,7 +11,9 @@ type Neuron struct {
 	NumberInputs int
 	Weights      []*Node // of size `NumberInputs`
 	Bias         *Node
-	Activation   func(in *Node) (out *Node)
+
+	//TODO modularize
+	Activation func(in *Node) (out *Node)
 }
 
 // NewNeuron initializes a neuron with `inputsize` random floats
@@ -23,6 +25,7 @@ func NewNeuron(inputsize int, label ...string) *Neuron {
 	}
 
 	weights := []*Node{}
+
 	for i := 0; i < inputsize; i++ {
 		weightLabel := fmt.Sprintf("%s_weight-%d", l, i)
 		weight := NewNode(1.0/float64(inputsize), weightLabel)
@@ -57,7 +60,7 @@ func (n *Neuron) Forwards(input []*Node) *Node {
 	)
 
 	for i := range input {
-		productLabel := fmt.Sprintf("in%dw%d", i, i)
+		productLabel := fmt.Sprintf("%sin%dw%d", n.Label, i, i)
 		product := input[i].Multiply(n.Weights[i], productLabel)
 		products = append(products, product)
 	}
@@ -84,4 +87,8 @@ func (n *Neuron) Forwards(input []*Node) *Node {
 	postActivationOutput := preActivationOutput.Tanh(neuronPostActivationOutputLabel)
 
 	return postActivationOutput
+}
+
+func (n *Neuron) String() string {
+	return fmt.Sprintf("[Neuron %s | Input Size %d| Weights %v | Bias %v]", n.Label, n.NumberInputs, n.Weights, n.Bias)
 }

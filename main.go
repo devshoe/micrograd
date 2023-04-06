@@ -3,12 +3,13 @@ package main
 import "fmt"
 
 func main() {
-	n := NewNeuron(3, "neuron_1")
-	o := n.Forwards([]*Node{NewNode(0.23, "input0"), NewNode(-3.0, "input1"), NewNode(0.77, "input2")})
+	in := []*Node{NewNode(0.23, "input0"), NewNode(-3.0, "input1"), NewNode(0.77, "input2")}
+	mlp := NewMultiLayerPerceptron(3, []int{5, 10, 1}, "mlp1")
+	o := mlp.Output(in)
+	o[0].Gradient = 1
+	o[0].BackPropagate()
 	fmt.Println(o)
-	o.Gradient = 1.0
-	o.BackPropagate()
-	o.Graph("graph.png")
+	o[0].Graph("graph.png")
 }
 
 func test() {
