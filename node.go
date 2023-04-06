@@ -2,23 +2,12 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"os"
 
 	"github.com/goccy/go-graphviz"
 	"github.com/goccy/go-graphviz/cgraph"
 	"github.com/google/uuid"
-)
-
-// Operation is the type of artihmetic that produces a given node
-type Operation string
-
-// Operation addition and others are the constrainted set of operations allowed for production
-const (
-	OperationAddition       = "+"
-	OperationSubtraction    = "-"
-	OperationMultiplication = "*"
-	OperationDivision       = "/"
-	OperationNil            = "_noop_"
 )
 
 // Node is a data holder
@@ -28,7 +17,7 @@ type Node struct {
 	Gradient            float64
 	ProducedByChildren  []*Node
 	ProducedByOperation Operation
-	GradientUpdater     func(*Node)
+	GradientUpdater     func()
 }
 
 // NewNode creates a new node. you can pass in an optional `label`
@@ -45,7 +34,7 @@ func NewNode(data float64, label ...string) *Node {
 		Gradient:            0.0,
 		ProducedByChildren:  []*Node{},
 		ProducedByOperation: OperationNil,
-		GradientUpdater:     func(n *Node) {},
+		GradientUpdater:     func() { return },
 	})
 }
 
@@ -63,21 +52,70 @@ func (n *Node) SetLabel(label string) *Node {
 	return n
 }
 
+// Clone copies the exact node, only updating the provided `label`
+func (n *Node) Clone(label string) *Node {
+	return &Node{
+		Label:               label,
+		Data:                n.Data,
+		Gradient:            n.Gradient,
+		ProducedByChildren:  n.ProducedByChildren,
+		ProducedByOperation: n.ProducedByOperation,
+		GradientUpdater:     n.GradientUpdater,
+	}
+}
+
 // Add adds another `Node` to this one. A fresh node with the result is returned and the operands are unchanged.
+// Sets the GradientUpdater function of output node.
+// for c = a + b
+// dc/da = 1.0
+// dc/db = 1.0
 func (n *Node) Add(other *Node, label ...string) *Node {
-	v := NewNode(n.Data+other.Data, label...)
-	v.SetChildren(OperationAddition, n, other)
-	return v
+	output := NewNode(n.Data+other.Data, label...)
+	output.SetChildren(OperationAddition, n, other)
+	output.GradientUpdater = func() {
+		n.Gradient = 1.0 * output.Gradient
+		other.Gradient = 1.0 * output.Gradient
+	}
+	return output
 }
 
 // Multiply multiplies another `Node` to this one. A fresh node with the result is returned and the operands are unchanged.
+// Sets the GradientUpdater function of output node.
+// for c = a * b, dc/da = b & dc/db = a
 func (n *Node) Multiply(other *Node, label ...string) *Node {
-	v := NewNode(n.Data*other.Data, label...)
-	v.SetChildren(OperationMultiplication, n, other)
-	return v
+	output := NewNode(n.Data*other.Data, label...)
+	output.SetChildren(OperationMultiplication, n, other)
+	output.GradientUpdater = func() {
+		n.Gradient = other.Data * output.Gradient
+		other.Gradient = n.Data * output.Gradient
+	}
+	return output
+}
+
+// Tanh computes the tanh of the data in this node. A fresh node with the result is returned and the operands are unchanged.
+// Sets the GradientUpdater function of output node.
+// for c = a * b, dc/da = b & dc/db = a
+func (n *Node) Tanh(label ...string) *Node {
+	output := NewNode(math.Tanh(n.Data), label...)
+	output.SetChildren(OperationTanh, n)
+	output.GradientUpdater = func() {
+		n.Gradient = (1 - math.Pow(math.Tanh(n.Data), 2)) * output.Gradient
+	}
+
+	return output
+}
+
+// BackPropagate traverses through the expression tree and calls the GradientUpdater functions for each node
+func (n *Node) BackPropagate() {
+	nodes, _ := n.Traverse()
+	for i := 0; i < len(nodes); i++ {
+		nodes[i].GradientUpdater()
+	}
+
 }
 
 // Traverse recurses through the tree and returns a list of nodes and edges
+// Uses preordering to accomplish traversal.
 func (n *Node) Traverse() (nodes []*Node, edges [][]*Node) {
 	var (
 		isVisited func(n *Node) bool
@@ -93,7 +131,7 @@ func (n *Node) Traverse() (nodes []*Node, edges [][]*Node) {
 		return false
 	}
 
-	trace = func(n *Node) {
+	trace = func(n *Node) { // trace builds a representation of the tree using preorder traversal.
 		if !isVisited(n) {
 			nodes = append(nodes, n)
 			for _, child := range n.ProducedByChildren {
@@ -104,6 +142,7 @@ func (n *Node) Traverse() (nodes []*Node, edges [][]*Node) {
 	}
 
 	trace(n)
+
 	return
 }
 
