@@ -3,28 +3,36 @@ package main
 import "fmt"
 
 func main() {
-	in := []*Node{NewNode(0.23, "input0"), NewNode(-3.0, "input1"), NewNode(0.77, "input2")}
-	mlp := NewMultiLayerPerceptron(3, []int{5, 10, 1}, "mlp1")
-	o := mlp.Output(in)
-	o[0].Gradient = 1
-	o[0].BackPropagate()
-	fmt.Println(o)
-	o[0].Graph("graph.png")
+	neuron, inputs := NewNeuron("neuron", 3), []*Node{NewNode("1", 0.5), NewNode("2", 0.213), NewNode("3", 0.9923)}
+	want := NewNode("pred", 2.0)
+	got := neuron.Forwards(inputs)
+	loss := SquaredDiff("loss", got, want)
+	BackPropagate(loss)
+	Graph("pre.png", loss)
+	Optimize(0.05, loss)
+	got = neuron.Forwards(inputs)
+	Graph("post.png", loss)
+
+	newloss := SquaredDiff("loss", got, want)
+	fmt.Printf("pre: %f, post: %f", loss.Data, newloss.Data)
 }
 
-func test() {
-	x1, w1, x2, w2 := NewNode(2.0, "x1"), NewNode(-3.0, "w1"), NewNode(0.0, "x2"), NewNode(1.0, "w2")
+/*
+trainset := [][]float64{
+		{255, 0, 0},
+		{0, 255, 0},
+		{0, 0, 255},
+	}
 
-	b := NewNode(6.8813735870195432, "b")
+	outputset := [][]float64{
+		{1},
+		{2},
+		{3},
+	}
 
-	x1w1, x2w2 := x1.Multiply(w1, "x1 * w1"), x2.Multiply(w2, "x2 * w2")
+	mlp := NewMultiLayerPerceptron(3, []int{4, 4, 1})
 
-	sum := x1w1.Add(x2w2, "x1w1 + x2w2")
+	loss := mlp.MeanSquaredLoss(trainset, outputset)
+	fmt.Println(loss.Graph("graph.png"))
 
-	preActivation := b.Add(sum, "result")
-
-	postActivation := preActivation.Tanh("output")
-	postActivation.Gradient = 1.0
-	postActivation.BackPropagate()
-	fmt.Println(postActivation.Graph("graph.png"))
-}
+*/
