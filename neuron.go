@@ -70,7 +70,7 @@ func (n *Neuron) Forwards(input []*Node) *Node {
 
 // Parameters returns the weights of this neuron
 func (n *Neuron) Parameters() []*Node {
-	return n.Weights
+	return append(n.Weights, n.Bias)
 }
 func (n *Neuron) String() string {
 	return fmt.Sprintf("[Neuron %s | Input Size %d| Weights %v | Bias %v]", n.Label, n.NumberInputs, n.Weights, n.Bias)

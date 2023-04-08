@@ -48,40 +48,64 @@ func (mlp *MultiLayerPerceptron) Parameters() []*Node {
 	return n
 }
 
+// ZeroGradient sets gradients for all nodes in this mlp to 0
+func (mlp *MultiLayerPerceptron) ZeroGradient() *MultiLayerPerceptron {
+	for _, n := range mlp.Parameters() {
+		n.Gradient = 0
+	}
+	return mlp
+}
+
 // Train runs the training, performing backpropagation and gradient descent.
-func (mlp *MultiLayerPerceptron) Train(inputs [][]float64, outputs [][]float64) error {
+func (mlp *MultiLayerPerceptron) Train(trainX [][]float64, trainY [][]float64) error {
 
 	if len(inputs) <= 0 {
 		return fmt.Errorf("train: inputs must contain something")
-	} else if len(outputs) != len(inputs) {
-		return fmt.Errorf("train: mismatch b/w input and output, want %d got %d", len(inputs), len(outputs))
-	} else if len(inputs[0]) != mlp.NumberInputs {
-		return fmt.Errorf("train: mismatch b/w train set dimensions & mlp dimensions, want %d got %d", (mlp.NumberInputs), len(inputs[0]))
-	} else if len(outputs[0]) != mlp.NumberOutputs[len(mlp.NumberOutputs)-1] {
-		return fmt.Errorf("train: mismatch b/w train set dimensions & mlp dimensions, want %d got %d", (mlp.NumberOutputs[len(mlp.NumberOutputs)-1]), len(outputs[0]))
+	} else if len(trainY) != len(trainX) {
+		return fmt.Errorf("train: mismatch b/w input and output, want %d got %d", len(inputs), len(trainY))
+	} else if len(trainX[0]) != mlp.NumberInputs {
+		return fmt.Errorf("train: mismatch b/w train set dimensions & mlp dimensions, want %d got %d", (mlp.NumberInputs), len(trainX[0]))
+	} else if len(trainY[0]) != mlp.NumberOutputs[len(mlp.NumberOutputs)-1] {
+		return fmt.Errorf("train: mismatch b/w train set dimensions & mlp dimensions, want %d got %d", (mlp.NumberOutputs[len(mlp.NumberOutputs)-1]), len(trainY[0]))
 	}
 
-	return nil
-}
-
-func (mlp *MultiLayerPerceptron) MeanSquaredLoss(inputs [][]float64, outputs [][]float64) *Node {
-	trainIn, trainOut := toNodes(inputs, outputs)
-
-	preds := [][]*Node{}
-	losses := []*Node{}
-	pow := NewNode("loss_pow", 2)
-	for rowIndex, record := range trainIn {
-		pred := mlp.Forwards(record)
-		preds = append(preds, pred)
-
-		for colIndex, elem := range trainOut[rowIndex] {
-			diffLabel, powLabel := fmt.Sprintf("diff%d_%d", rowIndex, colIndex), fmt.Sprintf("local_loss%d_%d", rowIndex, colIndex)
-			losses = append(losses, Power(powLabel, pow, Sub(diffLabel, elem, pred[colIndex])))
+	var flattenedLosses []*Node
+	computeLoss := func() {
+		trainx, trainy := toNodes(trainX, trainY)
+		lossByRecord := [][]*Node{}
+		for i, xnodes := range trainx {
+			pred := mlp.Forwards(xnodes)
+			losses := []*Node{}
+			for j, elem := range trainy[i] {
+				label := fmt.Sprintf("local_loss%d%d", i, j)
+				loss := SquaredDifference(label, pred[j], elem)
+				losses = append(losses, loss)
+			}
+			lossByRecord = append(lossByRecord, losses)
 		}
 
+		flattenedLosses = []*Node{}
+		for _, row := range lossByRecord {
+			flattenedLosses = append(flattenedLosses, row...)
+		}
 	}
 
-	return Add("loss", losses...)
+	learnRate := 0.1
+	for i := 0; i < 10000; i++ {
+		mlp.ZeroGradient()
+		computeLoss()
+		netLoss := Add("loss_"+mlp.Label, flattenedLosses...)
+		BackPropagate(netLoss)
+		fmt.Println(netLoss)
+
+		//Graph("graph.png", netLoss)
+		for _, node := range mlp.Parameters() {
+			node.Data += -learnRate * node.Gradient
+		}
+	}
+
+	// Graph("graph.png", netLoss)
+	return nil
 }
 
 func toNodes(inputs [][]float64, outputs [][]float64) ([][]*Node, [][]*Node) {
@@ -105,12 +129,4 @@ func toNodes(inputs [][]float64, outputs [][]float64) ([][]*Node, [][]*Node) {
 		outNodes = append(outNodes, mlpOut)
 	}
 	return inNodes, outNodes
-}
-
-func Sum(vals ...float64) float64 {
-	v := 0.0
-	for i := range vals {
-		v += vals[i]
-	}
-	return v
 }

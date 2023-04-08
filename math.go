@@ -17,7 +17,7 @@ func Add(label string, nodes ...*Node) *Node {
 	output.SetChildren(OperationAddition, nodes...)
 	output.GradientUpdater = func() {
 		for i := range nodes {
-			nodes[i].Gradient = 1.0 * output.Gradient
+			nodes[i].Gradient += 1.0 * output.Gradient //+= only for the special case where nodes are duplicated
 		}
 	}
 	return output
@@ -44,7 +44,7 @@ func Sub(label string, nodes ...*Node) *Node {
 	output.SetChildren(OperationSubtraction, nodes...)
 	output.GradientUpdater = func() {
 		for i := range nodes {
-			nodes[i].Gradient = 1.0 * output.Gradient
+			nodes[i].Gradient += 1.0 * output.Gradient //+= only for the special case where nodes are duplicated
 		}
 	}
 	return output
@@ -72,7 +72,7 @@ func Multiply(label string, nodes ...*Node) *Node {
 				}
 				gradient *= nodes[j].Data * output.Gradient
 			}
-			nodes[i].Gradient = gradient
+			nodes[i].Gradient += gradient //+= only for the special case where nodes are duplicated
 		}
 	}
 	return output
@@ -88,7 +88,7 @@ func Tanh(label string, node *Node) *Node {
 	output := NewNode(label, tanh)
 	output.SetChildren(OperationTanh, node)
 	output.GradientUpdater = func() {
-		node.Gradient = (1 - math.Pow(tanh, 2)) * output.Gradient
+		node.Gradient += (1 - math.Pow(tanh, 2)) * output.Gradient
 	}
 	return output
 }
@@ -109,7 +109,9 @@ func Power(label string, power *Node, node *Node) *Node {
 	}
 	output.SetChildren(op, node)
 	output.GradientUpdater = func() {
-		node.Gradient = power.Data * math.Pow(node.Data, power.Data-1) * output.Gradient
+		node.Gradient += power.Data * math.Pow(node.Data, power.Data-1) * output.Gradient
 	}
 	return output
 }
+
+// func MeanSquaredLoss(label string, want)
