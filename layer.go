@@ -46,3 +46,19 @@ func (l *Layer) Parameters() []*Node {
 	}
 	return n
 }
+
+func (l *Layer) ToJSONMap() map[string]any {
+	data := map[string]any{
+		"name":           l.Label,
+		"number_inputs":  l.NumberInputs,
+		"number_outputs": l.NumberOutputs,
+		"neurons":        []map[string]any{},
+	}
+	neurons := []map[string]any{}
+	for i := range l.Neurons {
+		neurons = append(neurons, l.Neurons[i].ToJSONMap())
+	}
+
+	data["neurons"] = neurons
+	return data
+}

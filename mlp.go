@@ -15,6 +15,8 @@ type MultiLayerPerceptron struct {
 // NewMultiLayerPerceptron creates a new MLP. the num inputs is the number of inputs
 // len of `numOut` specifies the number of layers this mlp has
 // the value of index in `numOut` specifies the number of neurons the corresponding layer will have
+// the value of index of the previous layer in `numOut` specifies the number of inputs each neuron will have
+// Basically, the way an MLP works is that all outputs of previous layer are feed to each neuron in the successive layer.
 func NewMultiLayerPerceptron(label string, numIn int, numOut []int) *MultiLayerPerceptron {
 	allLayers := append([]int{numIn}, numOut...)
 	layers := []*Layer{}
@@ -30,7 +32,24 @@ func NewMultiLayerPerceptron(label string, numIn int, numOut []int) *MultiLayerP
 	}
 }
 
+func (mlp *MultiLayerPerceptron) ToJSONMap() map[string]any {
+	data := map[string]any{
+		"name":             mlp.Label,
+		"layer_dimensions": append([]int{mlp.NumberInputs}, mlp.NumberOutputs...),
+		"layers":           map[string]any{},
+	}
+	layers := []map[string]any{}
+
+	for _, layer := range mlp.Layers {
+		layers = append(layers, layer.ToJSONMap())
+	}
+	data["layers"] = layers
+	return data
+	//fmt.Println(os.WriteFile(outfile, data, 0644))
+}
+
 // Forwards returns the final output of this neural network
+
 func (mlp *MultiLayerPerceptron) Forwards(in []*Node) (out []*Node) {
 	buf := in
 	for i := range mlp.Layers {
@@ -57,7 +76,7 @@ func (mlp *MultiLayerPerceptron) ZeroGradient() *MultiLayerPerceptron {
 }
 
 // Train runs the training, performing backpropagation and gradient descent.
-func (mlp *MultiLayerPerceptron) Train(trainX [][]float64, trainY [][]float64) error {
+func (mlp *MultiLayerPerceptron) Train(cycles int, learnrate float64, trainX [][]float64, trainY [][]float64) error {
 
 	if len(inputs) <= 0 {
 		return fmt.Errorf("train: inputs must contain something")
@@ -69,38 +88,18 @@ func (mlp *MultiLayerPerceptron) Train(trainX [][]float64, trainY [][]float64) e
 		return fmt.Errorf("train: mismatch b/w train set dimensions & mlp dimensions, want %d got %d", (mlp.NumberOutputs[len(mlp.NumberOutputs)-1]), len(trainY[0]))
 	}
 
-	var flattenedLosses []*Node
-	computeLoss := func() {
-		trainx, trainy := toNodes(trainX, trainY)
-		lossByRecord := [][]*Node{}
-		for i, xnodes := range trainx {
-			pred := mlp.Forwards(xnodes)
-			losses := []*Node{}
-			for j, elem := range trainy[i] {
-				label := fmt.Sprintf("local_loss%d%d", i, j)
-				loss := SquaredDifference(label, pred[j], elem)
-				losses = append(losses, loss)
-			}
-			lossByRecord = append(lossByRecord, losses)
-		}
+	var (
+		trainx, trainy = toNodes(trainX, trainY)
+	)
 
-		flattenedLosses = []*Node{}
-		for _, row := range lossByRecord {
-			flattenedLosses = append(flattenedLosses, row...)
-		}
-	}
-
-	learnRate := 0.1
-	for i := 0; i < 10000; i++ {
+	for i := 0; i < cycles; i++ {
+		netloss := mlp.MeanSquaredLoss(trainx, trainy)
 		mlp.ZeroGradient()
-		computeLoss()
-		netLoss := Add("loss_"+mlp.Label, flattenedLosses...)
-		BackPropagate(netLoss)
-		fmt.Println(netLoss)
+		BackPropagate(netloss)
+		fmt.Println(netloss)
 
-		//Graph("graph.png", netLoss)
 		for _, node := range mlp.Parameters() {
-			node.Data += -learnRate * node.Gradient
+			node.Data += -learnrate * node.Gradient
 		}
 	}
 
@@ -108,6 +107,21 @@ func (mlp *MultiLayerPerceptron) Train(trainX [][]float64, trainY [][]float64) e
 	return nil
 }
 
+// MeanSquaredLoss returns the sum of (predicted - wanted) for each elem in trainy
+func (mlp *MultiLayerPerceptron) MeanSquaredLoss(trainx [][]*Node, trainy [][]*Node) *Node {
+	flattenedLosses := []*Node{}
+	for i, inputSet := range trainx {
+		pred := mlp.Forwards(inputSet)
+		for j, elem := range trainy[i] {
+			label := fmt.Sprintf("local_loss%d%d", i, j)
+			loss := SquaredDifference(label, pred[j], elem)
+			flattenedLosses = append(flattenedLosses, loss)
+		}
+	}
+
+	return Add("loss_"+mlp.Label, flattenedLosses...)
+
+}
 func toNodes(inputs [][]float64, outputs [][]float64) ([][]*Node, [][]*Node) {
 	inNodes, outNodes := [][]*Node{}, [][]*Node{}
 	for i, in := range inputs {

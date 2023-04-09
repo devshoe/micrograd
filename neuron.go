@@ -75,3 +75,24 @@ func (n *Neuron) Parameters() []*Node {
 func (n *Neuron) String() string {
 	return fmt.Sprintf("[Neuron %s | Input Size %d| Weights %v | Bias %v]", n.Label, n.NumberInputs, n.Weights, n.Bias)
 }
+
+func (n *Neuron) ToJSONMap() map[string]any {
+	data := map[string]any{
+		"label":          n.Label,
+		"number_inputs":  n.NumberInputs,
+		"number_outputs": 1,
+		"weights":        n.getWeightsFloat64(),
+		"bias":           n.Bias.Data,
+	}
+
+	return data
+}
+
+func (n *Neuron) getWeightsFloat64() []float64 {
+	out := []float64{}
+	for i := range n.Weights {
+		out = append(out, n.Weights[i].Data)
+	}
+
+	return out
+}

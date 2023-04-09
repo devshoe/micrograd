@@ -12,14 +12,28 @@ var (
 
 func main() {
 
-	trainX, trainY := oddevenTrainset(5)
-	fmt.Println("train: x", trainX, " y ", trainY)
-	mlp := NewMultiLayerPerceptron("is_odd", 1, []int{4, 1})
-	mlp.Train(trainX, trainY)
+	trainX := [][]float64{
+		{2.0, 3.0, -1.0},
+		{3.0, -1.0, 0.5},
+		{0.5, 1.0, 1.0},
+		{1.0, 1.0, -1.0},
+	}
 
-	fmt.Println(mlp.Forwards([]*Node{NewNode("in_base0", 0)})) // expect 0
-	fmt.Println(mlp.Forwards([]*Node{NewNode("in_base1", 1)})) // expect 1
-	fmt.Println(mlp.Forwards([]*Node{NewNode("in_base2", 2)})) // expect 0
+	trainY := [][]float64{
+		{1.0}, {-0.0003}, {-0.01}, {1.0},
+	}
+
+	fmt.Println("train: x", trainX, " y ", trainY)
+	mlp := NewMultiLayerPerceptron("is_odd", 3, []int{4, 4, 1})
+	mlp.Train(1000, 0.1, trainX, trainY)
+
+	d := mlp.ToJSONMap()
+
+	for k, v := range d {
+		fmt.Println(k, v)
+	}
+	fmt.Println(mlp.Forwards([]*Node{NewNode("in_base0", 2), NewNode("in_base1", 3), NewNode("in_base2", -1)}))   // expect 1
+	fmt.Println(mlp.Forwards([]*Node{NewNode("in_base0", 3), NewNode("in_base1", -1), NewNode("in_base2", 0.5)})) // expect -1
 }
 
 func oddevenTrainset(size int) ([][]float64, [][]float64) {
