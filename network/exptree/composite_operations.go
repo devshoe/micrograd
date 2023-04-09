@@ -1,4 +1,4 @@
-package main
+package exptree
 
 // SquaredDifference computes the
 func SquaredDifference(label string, nodes ...*Node) *Node {

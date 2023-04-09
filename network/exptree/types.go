@@ -1,4 +1,4 @@
-package main
+package exptree
 
 // Operation is the type of artihmetic that produces a given node
 type Operation string

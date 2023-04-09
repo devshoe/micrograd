@@ -1,47 +1,48 @@
-package main
+package network
 
 import (
 	"fmt"
 	"math/rand"
+	"nn/network/exptree"
 )
 
 // Neuron is the fundamental element of a NN
 type Neuron struct {
 	Label        string
 	NumberInputs int
-	Weights      []*Node // of size `NumberInputs`
-	Bias         *Node
+	Weights      []*exptree.Node // of size `NumberInputs`
+	Bias         *exptree.Node
 
 	//TODO modularize
-	Activation func(in *Node) (out *Node)
+	Activation func(in *exptree.Node) (out *exptree.Node)
 }
 
 // NewNeuron initializes a neuron with `inputsize` random floats
 // if `label` is supplied, it is prefixed to the label of the weights
 func NewNeuron(label string, inputsize int) *Neuron {
-	weights := []*Node{}
+	weights := []*exptree.Node{}
 
 	for i := 0; i < inputsize; i++ {
 		weightLabel := fmt.Sprintf("%s_w%d", label, i)
-		weight := NewNode(weightLabel, 1.0/float64(inputsize))
+		weight := exptree.NewNode(weightLabel, 1.0/float64(inputsize))
 		weights = append(weights, weight)
 	}
 
 	biasLabel := fmt.Sprintf("%s_bias", label)
-	bias := NewNode(biasLabel, rand.Float64())
+	bias := exptree.NewNode(biasLabel, rand.Float64())
 
 	return &Neuron{
 		Label:        label,
 		NumberInputs: inputsize,
 		Weights:      weights,
 		Bias:         bias,
-		Activation:   func(n *Node) *Node { return Tanh(fmt.Sprintf("%s_tanh", label), n) },
+		Activation:   func(n *exptree.Node) *exptree.Node { return exptree.Tanh(fmt.Sprintf("%s_tanh", label), n) },
 	}
 }
 
 // Forwards computes sum(xiwi) + b followed by calling the activation function.
 // `input` should have len `Neuron.NumberInputs`, or will panic
-func (n *Neuron) Forwards(input []*Node) *Node {
+func (n *Neuron) Forwards(input []*exptree.Node) *exptree.Node {
 	if len(input) != n.NumberInputs {
 		panic(fmt.Sprintf("mismatch in input dimensions: want %d, got %d", n.NumberInputs, len(input)))
 	}
@@ -50,26 +51,26 @@ func (n *Neuron) Forwards(input []*Node) *Node {
 		neuronProductSumLabel           = fmt.Sprintf("%s_product_sum", n.Label)
 		neuronPreActivationOutputLabel  = fmt.Sprintf("%s_biased", n.Label)
 		neuronPostActivationOutputLabel = fmt.Sprintf("%s_output", n.Label)
-		products                        = []*Node{}
-		productSum                      = NewNode(neuronProductSumLabel, 0.0)
+		products                        = []*exptree.Node{}
+		productSum                      = exptree.NewNode(neuronProductSumLabel, 0.0)
 	)
 
 	for i := range input {
 		productLabel := fmt.Sprintf("%sin%dw%d", n.Label, i, i)
-		product := Multiply(productLabel, input[i], n.Weights[i])
+		product := exptree.Multiply(productLabel, input[i], n.Weights[i])
 		products = append(products, product)
 	}
 
-	productSum = Add(neuronProductSumLabel, products...)
+	productSum = exptree.Add(neuronProductSumLabel, products...)
 
-	preActivationOutput := Add(neuronPreActivationOutputLabel, productSum, n.Bias)
-	postActivationOutput := Tanh(neuronPostActivationOutputLabel, preActivationOutput)
+	preActivationOutput := exptree.Add(neuronPreActivationOutputLabel, productSum, n.Bias)
+	postActivationOutput := exptree.Tanh(neuronPostActivationOutputLabel, preActivationOutput)
 
 	return postActivationOutput
 }
 
 // Parameters returns the weights of this neuron
-func (n *Neuron) Parameters() []*Node {
+func (n *Neuron) Parameters() []*exptree.Node {
 	return append(n.Weights, n.Bias)
 }
 func (n *Neuron) String() string {

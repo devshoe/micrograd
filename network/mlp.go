@@ -1,7 +1,8 @@
-package main
+package network
 
 import (
 	"fmt"
+	"nn/network/exptree"
 )
 
 // MultiLayerPerceptron is the simplest kind of neural network
@@ -50,7 +51,7 @@ func (mlp *MultiLayerPerceptron) ToJSONMap() map[string]any {
 
 // Forwards returns the final output of this neural network
 
-func (mlp *MultiLayerPerceptron) Forwards(in []*Node) (out []*Node) {
+func (mlp *MultiLayerPerceptron) Forwards(in []*exptree.Node) (out []*exptree.Node) {
 	buf := in
 	for i := range mlp.Layers {
 		buf = mlp.Layers[i].Forwards(buf)
@@ -59,8 +60,8 @@ func (mlp *MultiLayerPerceptron) Forwards(in []*Node) (out []*Node) {
 }
 
 // Parameters returns the weights of all nodes in all layers as a flattened array
-func (mlp *MultiLayerPerceptron) Parameters() []*Node {
-	n := []*Node{}
+func (mlp *MultiLayerPerceptron) Parameters() []*exptree.Node {
+	n := []*exptree.Node{}
 	for i := range mlp.Layers {
 		n = append(n, mlp.Layers[i].Parameters()...)
 	}
@@ -78,10 +79,10 @@ func (mlp *MultiLayerPerceptron) ZeroGradient() *MultiLayerPerceptron {
 // Train runs the training, performing backpropagation and gradient descent.
 func (mlp *MultiLayerPerceptron) Train(cycles int, learnrate float64, trainX [][]float64, trainY [][]float64) error {
 
-	if len(inputs) <= 0 {
+	if len(trainX) <= 0 {
 		return fmt.Errorf("train: inputs must contain something")
 	} else if len(trainY) != len(trainX) {
-		return fmt.Errorf("train: mismatch b/w input and output, want %d got %d", len(inputs), len(trainY))
+		return fmt.Errorf("train: mismatch b/w input and output, want %d got %d", len(trainX), len(trainY))
 	} else if len(trainX[0]) != mlp.NumberInputs {
 		return fmt.Errorf("train: mismatch b/w train set dimensions & mlp dimensions, want %d got %d", (mlp.NumberInputs), len(trainX[0]))
 	} else if len(trainY[0]) != mlp.NumberOutputs[len(mlp.NumberOutputs)-1] {
@@ -95,7 +96,7 @@ func (mlp *MultiLayerPerceptron) Train(cycles int, learnrate float64, trainX [][
 	for i := 0; i < cycles; i++ {
 		netloss := mlp.MeanSquaredLoss(trainx, trainy)
 		mlp.ZeroGradient()
-		BackPropagate(netloss)
+		exptree.BackPropagate(netloss)
 		fmt.Println(netloss)
 
 		for _, node := range mlp.Parameters() {
@@ -108,26 +109,26 @@ func (mlp *MultiLayerPerceptron) Train(cycles int, learnrate float64, trainX [][
 }
 
 // MeanSquaredLoss returns the sum of (predicted - wanted) for each elem in trainy
-func (mlp *MultiLayerPerceptron) MeanSquaredLoss(trainx [][]*Node, trainy [][]*Node) *Node {
-	flattenedLosses := []*Node{}
+func (mlp *MultiLayerPerceptron) MeanSquaredLoss(trainx [][]*exptree.Node, trainy [][]*exptree.Node) *exptree.Node {
+	flattenedLosses := []*exptree.Node{}
 	for i, inputSet := range trainx {
 		pred := mlp.Forwards(inputSet)
 		for j, elem := range trainy[i] {
 			label := fmt.Sprintf("local_loss%d%d", i, j)
-			loss := SquaredDifference(label, pred[j], elem)
+			loss := exptree.SquaredDifference(label, pred[j], elem)
 			flattenedLosses = append(flattenedLosses, loss)
 		}
 	}
 
-	return Add("loss_"+mlp.Label, flattenedLosses...)
+	return exptree.Add("loss_"+mlp.Label, flattenedLosses...)
 
 }
-func toNodes(inputs [][]float64, outputs [][]float64) ([][]*Node, [][]*Node) {
-	inNodes, outNodes := [][]*Node{}, [][]*Node{}
+func toNodes(inputs [][]float64, outputs [][]float64) ([][]*exptree.Node, [][]*exptree.Node) {
+	inNodes, outNodes := [][]*exptree.Node{}, [][]*exptree.Node{}
 	for i, in := range inputs {
-		mlpIn := []*Node{}
+		mlpIn := []*exptree.Node{}
 		for idx, data := range in {
-			mlpIn = append(mlpIn, NewNode(fmt.Sprintf("r%din%d", i, idx), data))
+			mlpIn = append(mlpIn, exptree.NewNode(fmt.Sprintf("r%din%d", i, idx), data))
 		}
 
 		inNodes = append(inNodes, mlpIn)
@@ -135,9 +136,9 @@ func toNodes(inputs [][]float64, outputs [][]float64) ([][]*Node, [][]*Node) {
 	}
 
 	for j, out := range outputs {
-		mlpOut := []*Node{}
+		mlpOut := []*exptree.Node{}
 		for idx, data := range out {
-			mlpOut = append(mlpOut, NewNode(fmt.Sprintf("r%dout%d", j, idx), data))
+			mlpOut = append(mlpOut, exptree.NewNode(fmt.Sprintf("r%dout%d", j, idx), data))
 		}
 
 		outNodes = append(outNodes, mlpOut)

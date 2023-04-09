@@ -1,6 +1,9 @@
-package main
+package network
 
-import "fmt"
+import (
+	"fmt"
+	"nn/network/exptree"
+)
 
 // Layer is a set of neurons
 type Layer struct {
@@ -31,7 +34,8 @@ func NewLayer(label string, numInputs, numOutputs int) *Layer {
 }
 
 // Forwards computes the output of the layer.
-func (l *Layer) Forwards(in []*Node) (output []*Node) {
+func (l *Layer) Forwards(in []*exptree.Node) (output []*exptree.Node) {
+
 	for _, neuron := range l.Neurons {
 		output = append(output, neuron.Forwards(in))
 	}
@@ -39,8 +43,8 @@ func (l *Layer) Forwards(in []*Node) (output []*Node) {
 }
 
 // Parameters returns the weights of all nodes in this layer as a flattened array
-func (l *Layer) Parameters() []*Node {
-	n := []*Node{}
+func (l *Layer) Parameters() []*exptree.Node {
+	n := []*exptree.Node{}
 	for i := range l.Neurons {
 		n = append(n, l.Neurons[i].Weights...)
 	}
